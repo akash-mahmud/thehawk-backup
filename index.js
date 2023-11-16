@@ -1,8 +1,7 @@
 require('dotenv').config()
 const AWS = require('aws-sdk');
 const { exec } = require('child_process');
-const nodemailer = require('nodemailer');
-const cron = require('cron');
+const {CronJob} = require('cron');
 const { transporter } = require('./utils/mailer');
 
 // AWS S3 configuration
@@ -16,7 +15,7 @@ const s3 = new AWS.S3({
 const mongoBackupOptions = {
     uri: process.env.DATABASE_URI,
     root: __dirname,
-    tar: process.env.BACKUP_FILE_NAME, // Backup file name
+    file: process.env.BACKUP_FILE_NAME, // Backup file name
     callback: function (err) {
         if (err) {
             console.error('MongoDB backup failed:', err);
@@ -32,20 +31,20 @@ const mongoBackupOptions = {
 
 // Email configuration
 const mailOptions = {
-    from: 'your_email@gmail.com',
-    to: 'your_email@gmail.com',
+    from: 'mahmudakash177@gmail.com',
+    to: 'mahmudakash177@gmail.com',
     subject: 'Backup Successful',
     text: 'Your database backup was successful.',
 };
 
 // Schedule the job to run every 2 days at 12 AM
-const cronJob = cron.job('0 0 0 */2 * *', function () {
+const cronJob = new CronJob('0 0 0 */2 * *', async function () {
     console.log('Running backup job...');
 
     // Delete the last backup from S3
 
     // Create a MongoDB backup
-    exec(`mongodump --uri ${mongoBackupOptions.uri} --archive=${mongoBackupOptions.root}/${mongoBackupOptions.tar}`, mongoBackupOptions.callback);
+    exec(`mongodump --uri ${mongoBackupOptions.uri} --archive=${mongoBackupOptions.root}/${mongoBackupOptions.file} --gzip"`, mongoBackupOptions.callback);
 });
 
 // Start the cron job
@@ -69,7 +68,7 @@ function deleteLastBackupFromS3() {
 
 function uploadToS3() {
     // Read the backup file
-    const backupData = require('fs').readFileSync(mongoBackupOptions.tar);
+    const backupData = require('fs').readFileSync(mongoBackupOptions.file);
 
     // Upload the backup file to S3
     const uploadParams = {
@@ -92,7 +91,7 @@ function uploadToS3() {
 
 function deleteLocalBackup() {
     // Delete the local backup file
-    require('fs').unlinkSync(mongoBackupOptions.tar);
+    require('fs').unlinkSync(mongoBackupOptions.file);
     console.log('Local backup deleted');
 
     // Send a success email
